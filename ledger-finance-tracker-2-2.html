@@ -148,10 +148,66 @@
   .allo-fill{height:100%;}
   .allo-nums{width:120px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--text-muted);flex-shrink:0;}
   .legend-dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;}
+
+  /* ---------- responsive: wider desktop layout ---------- */
+  @media (min-width:860px){
+    .wrap{max-width:980px;padding-left:36px;padding-right:36px;}
+    .bottomnav{max-width:980px;left:50%;transform:translateX(-50%);border-radius:14px 14px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,0.35);}
+    .grid2{grid-template-columns:1fr 1fr 1fr;}
+    .metric-grid{grid-template-columns:repeat(4,1fr);}
+  }
+  @media (min-width:1180px){
+    .wrap{max-width:1080px;}
+  }
+
+  /* ---------- saved reports panel ---------- */
+  .reports-wrap{padding-top:0;}
+  .reports-panel{background:var(--surface);border:1px solid var(--hairline);border-radius:14px;overflow:hidden;}
+  .reports-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;background:none;border:none;color:var(--text);cursor:pointer;padding:16px;font-family:'Inter',sans-serif;text-align:left;}
+  .reports-toggle .rt-left{display:flex;align-items:center;gap:10px;}
+  .reports-toggle .rt-icon{width:32px;height:32px;border-radius:50%;border:1.5px solid var(--gold-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .reports-toggle .rt-icon svg{width:16px;height:16px;color:var(--gold);}
+  .reports-toggle .rt-title{font-family:'Fraunces',serif;font-size:15px;font-weight:600;}
+  .reports-toggle .rt-sub{font-size:11.5px;color:var(--text-faint);margin-top:1px;}
+  .reports-toggle .rt-count{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--text-muted);background:var(--surface-2);border-radius:20px;padding:3px 10px;flex-shrink:0;}
+  .reports-toggle .chevron{width:14px;height:14px;color:var(--text-faint);transition:transform 0.2s ease;flex-shrink:0;}
+  .reports-panel.open .chevron{transform:rotate(180deg);}
+  .reports-body{padding:0 16px 16px;border-top:1px solid var(--hairline);}
+  .reports-body[hidden]{display:none;}
+  .save-report-btn{width:100%;margin:14px 0 12px;}
+  .report-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px dashed var(--hairline);}
+  .report-row:last-child{border-bottom:none;}
+  .report-date{font-size:12.5px;font-weight:600;color:var(--text);}
+  .report-meta{font-size:11.5px;color:var(--text-muted);margin-top:2px;font-family:'IBM Plex Mono',monospace;}
+  .report-del{background:none;border:1px solid var(--hairline);color:var(--text-faint);border-radius:7px;padding:5px 9px;font-size:12px;cursor:pointer;flex-shrink:0;}
+  .report-del:hover{color:var(--negative);border-color:var(--negative);}
+  .reports-empty{font-size:12.5px;color:var(--text-faint);padding:14px 0;text-align:center;}
 </style>
 </head>
 <body>
 <div class="wrap" id="app"></div>
+
+<div class="wrap reports-wrap">
+  <div class="reports-panel" id="reportsPanel">
+    <button class="reports-toggle" id="reportsToggle" aria-expanded="false">
+      <span class="rt-left">
+        <span class="rt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v16.5A2.5 2.5 0 0 1 16.5 22H6.5A2.5 2.5 0 0 1 4 19.5v-14Z"/><path d="M8 7.5h7M8 11h7"/></svg></span>
+        <span>
+          <span class="rt-title">Saved reports</span>
+          <span class="rt-sub">Snapshots of your net worth, saved on this device</span>
+        </span>
+      </span>
+      <span style="display:flex;align-items:center;gap:8px;">
+        <span class="rt-count" id="reportsCount">0</span>
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </span>
+    </button>
+    <div class="reports-body" id="reportsBody" hidden>
+      <button class="btn save-report-btn" id="saveReportBtn">Save a snapshot now</button>
+      <div id="reportsList"></div>
+    </div>
+  </div>
+</div>
 
 <div class="bottomnav" id="bottomnav">
   <button class="navbtn" data-tab="overview"><span class="dot"></span>Overview</button>
@@ -1168,6 +1224,84 @@ function attachDynamicHandlers(){
     await saveState(); render();
   });
 }
+
+/* ---------------- saved reports (manual snapshots) ---------------- */
+const REPORTS_KEY = 'reports-v1';
+async function loadReports(){
+  try{
+    const r = await window.storage.get(REPORTS_KEY);
+    return (r && r.value) ? JSON.parse(r.value) : [];
+  }catch(e){ return []; }
+}
+async function saveReportsList(list){
+  try{ await window.storage.set(REPORTS_KEY, JSON.stringify(list)); }
+  catch(e){ showToast('Could not save report'); }
+}
+function fmtReportDate(iso){
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'}) + ' · ' + d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
+}
+async function addReport(){
+  const list = await loadReports();
+  const cur = state.settings.displayCurrency;
+  list.unshift({
+    id: uid(),
+    date: new Date().toISOString(),
+    currency: cur,
+    netWorth: netWorthDisplay(),
+    assets: totalAssetsDisplay(),
+    liabilities: totalLiabDisplay(),
+    goalsCount: state.goals.length,
+    transactionsCount: state.transactions.length
+  });
+  if(list.length > 200) list.length = 200;
+  await saveReportsList(list);
+  await renderReportsPanel();
+  showToast('Snapshot saved');
+}
+async function deleteReport(id){
+  let list = await loadReports();
+  list = list.filter(r => r.id !== id);
+  await saveReportsList(list);
+  await renderReportsPanel();
+}
+async function renderReportsPanel(){
+  const list = await loadReports();
+  const countEl = document.getElementById('reportsCount');
+  const listEl = document.getElementById('reportsList');
+  if(!countEl || !listEl) return;
+  countEl.textContent = list.length;
+  if(list.length === 0){
+    listEl.innerHTML = '<div class="reports-empty">No saved snapshots yet — tap "Save a snapshot now" to log today\'s numbers.</div>';
+    return;
+  }
+  listEl.innerHTML = list.map(r => `
+    <div class="report-row">
+      <div>
+        <div class="report-date">${fmtReportDate(r.date)}</div>
+        <div class="report-meta">Net worth ${fmtCur(r.netWorth, r.currency)} &nbsp;·&nbsp; Assets ${fmtCur(r.assets, r.currency)} &nbsp;·&nbsp; Liabilities ${fmtCur(r.liabilities, r.currency)}</div>
+      </div>
+      <button class="report-del" data-id="${r.id}" title="Delete this snapshot">✕</button>
+    </div>
+  `).join('');
+  listEl.querySelectorAll('.report-del').forEach(btn=>{
+    btn.addEventListener('click', ()=> deleteReport(btn.getAttribute('data-id')));
+  });
+}
+function initReportsPanel(){
+  const panel = document.getElementById('reportsPanel');
+  const toggle = document.getElementById('reportsToggle');
+  const body = document.getElementById('reportsBody');
+  toggle.addEventListener('click', ()=>{
+    const willOpen = body.hasAttribute('hidden');
+    if(willOpen){ body.removeAttribute('hidden'); panel.classList.add('open'); }
+    else{ body.setAttribute('hidden',''); panel.classList.remove('open'); }
+    toggle.setAttribute('aria-expanded', String(willOpen));
+  });
+  document.getElementById('saveReportBtn').addEventListener('click', addReport);
+  renderReportsPanel();
+}
+initReportsPanel();
 
 loadState();
 </script>
