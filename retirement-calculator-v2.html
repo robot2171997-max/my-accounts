@@ -200,6 +200,36 @@
   .saved-actions{ display:flex; gap: 6px; align-items:center; }
   .empty-note{ color: var(--text-faint); font-size: 13px; padding: 6px 0; }
 
+  /* ---------- saved plans: expandable bottom panel ---------- */
+  .reports-panel{
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    margin-top: 22px;
+    overflow: hidden;
+  }
+  .reports-toggle{
+    width: 100%; display:flex; align-items:center; justify-content:space-between;
+    gap:10px; background:none; border:none; cursor:pointer; padding:18px 20px;
+    text-align:left; color: var(--text); font-family: 'IBM Plex Sans', sans-serif;
+  }
+  .reports-toggle .rleft{ display:flex; align-items:center; gap:12px; }
+  .reports-toggle .ricon{
+    width:34px; height:34px; border-radius:50%; border:1.5px solid var(--gold);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .reports-toggle .ricon svg{ width:17px; height:17px; color: var(--gold-bright); }
+  .reports-toggle .rtitle{ font-family:'Fraunces', serif; font-size:16px; font-weight:500; color: var(--text); }
+  .reports-toggle .rsub{ font-size:12px; color: var(--text-faint); margin-top:2px; }
+  .reports-toggle .rcount{
+    font-family:'IBM Plex Mono', monospace; font-size:12px; color: var(--text-dim);
+    background: var(--panel-3); border-radius:20px; padding:4px 12px; flex-shrink:0;
+  }
+  .reports-toggle .chev{ width:14px; height:14px; color: var(--text-faint); transition: transform 0.2s ease; flex-shrink:0; }
+  .reports-panel.open .chev{ transform: rotate(180deg); }
+  .reports-body{ padding: 0 20px 20px; border-top: 1px solid var(--border); }
+  .reports-body[hidden]{ display:none; }
+
   .save-status{ font-size: 12px; color: var(--text-faint); margin-top: 10px; min-height: 16px; }
 </style>
 </head>
@@ -334,17 +364,29 @@
           <button class="ghost" id="resetBtn">Reset to defaults</button>
         </div>
       </div>
-
-      <div class="card">
-        <fieldset style="margin-bottom:0;">
-          <legend>Saved plans</legend>
-          <div class="saved-list" id="savedList">
-            <div class="empty-note">No saved plans yet — adjust the numbers and save one.</div>
-          </div>
-        </fieldset>
-      </div>
     </div>
 
+  </div>
+
+  <div class="reports-panel" id="reportsPanel">
+    <button class="reports-toggle" id="reportsToggle" aria-expanded="false">
+      <span class="rleft">
+        <span class="ricon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v16.5A2.5 2.5 0 0 1 16.5 22H6.5A2.5 2.5 0 0 1 4 19.5v-14Z"/><path d="M8 7.5h7M8 11h7"/></svg></span>
+        <span>
+          <span class="rtitle">Saved plans</span>
+          <span class="rsub">Every plan you save on this device, until you delete it</span>
+        </span>
+      </span>
+      <span style="display:flex;align-items:center;gap:8px;">
+        <span class="rcount" id="reportsCount">0</span>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </span>
+    </button>
+    <div class="reports-body" id="savedListWrap" hidden>
+      <div class="saved-list" id="savedList">
+        <div class="empty-note">No saved plans yet — adjust the numbers and save one above.</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -558,11 +600,13 @@ window.storage = (function(){
 
   async function refreshSavedList(){
     const listEl = document.getElementById('savedList');
+    const countEl = document.getElementById('reportsCount');
     try {
       const listRes = await window.storage.list('plan:', false);
       const keys = (listRes && listRes.keys) || [];
+      if (countEl) countEl.textContent = keys.length;
       if (keys.length === 0) {
-        listEl.innerHTML = '<div class="empty-note">No saved plans yet — adjust the numbers and save one.</div>';
+        listEl.innerHTML = '<div class="empty-note">No saved plans yet — adjust the numbers and save one above.</div>';
         return;
       }
       const items = [];
@@ -619,9 +663,22 @@ window.storage = (function(){
       await window.storage.set(key, JSON.stringify({ name, inputs: v, savedAt: Date.now() }), false);
       statusEl.textContent = 'Plan saved';
       refreshSavedList();
+      const panel = document.getElementById('reportsPanel');
+      const body = document.getElementById('savedListWrap');
+      if (body.hasAttribute('hidden')) document.getElementById('reportsToggle').click();
     } catch (e) {
       statusEl.textContent = 'Could not save plan';
     }
+  });
+
+  document.getElementById('reportsToggle').addEventListener('click', () => {
+    const panel = document.getElementById('reportsPanel');
+    const body = document.getElementById('savedListWrap');
+    const toggle = document.getElementById('reportsToggle');
+    const willOpen = body.hasAttribute('hidden');
+    if (willOpen) { body.removeAttribute('hidden'); panel.classList.add('open'); }
+    else { body.setAttribute('hidden', ''); panel.classList.remove('open'); }
+    toggle.setAttribute('aria-expanded', String(willOpen));
   });
 
   document.getElementById('resetBtn').addEventListener('click', () => {
