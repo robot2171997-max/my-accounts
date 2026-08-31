@@ -52,6 +52,10 @@
     gap:20px;
   }
   @media (max-width:760px){ .grid{grid-template-columns:1fr;} }
+  @media (min-width:1100px){
+    .wrap{max-width:1120px;}
+    .grid{grid-template-columns:380px 1fr;}
+  }
 
   .card{
     background:var(--panel);
@@ -140,6 +144,36 @@
   tr.breakeven td:first-child{font-weight:700;color:var(--amber);}
 
   footer{margin-top:30px;font-size:12px;color:var(--ink-soft);line-height:1.6;}
+
+  /* ---------- save + saved reports ---------- */
+  .save-row{display:flex;gap:10px;margin-top:22px;}
+  .save-btn{
+    flex:1;background:var(--teal);color:#fff;border:none;border-radius:10px;
+    padding:12px 16px;font-family:'Inter',sans-serif;font-weight:600;font-size:14px;cursor:pointer;
+  }
+  .save-btn:active{transform:scale(0.98);}
+  .reports-panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;margin-top:14px;overflow:hidden;}
+  .reports-toggle{
+    width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:none;border:none;cursor:pointer;padding:16px;text-align:left;font-family:'Inter',sans-serif;color:var(--ink);
+  }
+  .reports-toggle .rleft{display:flex;align-items:center;gap:10px;}
+  .reports-toggle .ricon{width:32px;height:32px;border-radius:50%;background:#EFEAD9;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .reports-toggle .ricon svg{width:16px;height:16px;color:var(--teal);}
+  .reports-toggle .rtitle{font-family:'Fraunces',serif;font-size:15px;font-weight:600;}
+  .reports-toggle .rsub{font-size:11.5px;color:var(--ink-soft);margin-top:1px;}
+  .reports-toggle .rcount{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--ink-soft);background:var(--bg);border-radius:20px;padding:3px 10px;flex-shrink:0;}
+  .reports-toggle .chev{width:14px;height:14px;color:var(--ink-soft);transition:transform 0.2s ease;flex-shrink:0;}
+  .reports-panel.open .chev{transform:rotate(180deg);}
+  .reports-body{padding:0 16px 16px;border-top:1px solid var(--line);}
+  .reports-body[hidden]{display:none;}
+  .report-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 0;border-bottom:1px dashed var(--line);}
+  .report-row:last-child{border-bottom:none;}
+  .report-date{font-size:12.5px;font-weight:600;color:var(--ink);}
+  .report-meta{font-size:11.5px;color:var(--ink-soft);margin-top:2px;font-family:'IBM Plex Mono',monospace;}
+  .report-del{background:none;border:1px solid var(--line);color:var(--ink-soft);border-radius:7px;padding:5px 9px;font-size:12px;cursor:pointer;flex-shrink:0;}
+  .report-del:hover{color:var(--bad);border-color:var(--bad);}
+  .reports-empty{font-size:12.5px;color:var(--ink-soft);text-align:center;padding:14px 0;}
 </style>
 </head>
 <body>
@@ -204,6 +238,29 @@
         </div>
         <svg id="chart" viewBox="0 0 640 260" style="width:100%;height:auto;"></svg>
         <table id="yearTable"></table>
+      </div>
+
+      <div class="save-row">
+        <button class="save-btn" id="saveReportBtn">Save this comparison as a report</button>
+      </div>
+
+      <div class="reports-panel" id="reportsPanel">
+        <button class="reports-toggle" id="reportsToggle" aria-expanded="false">
+          <span class="rleft">
+            <span class="ricon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v16.5A2.5 2.5 0 0 1 16.5 22H6.5A2.5 2.5 0 0 1 4 19.5v-14Z"/><path d="M8 7.5h7M8 11h7"/></svg></span>
+            <span>
+              <span class="rtitle">Saved reports</span>
+              <span class="rsub">Comparisons you've saved on this device</span>
+            </span>
+          </span>
+          <span style="display:flex;align-items:center;gap:8px;">
+            <span class="rcount" id="reportsCount">0</span>
+            <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+          </span>
+        </button>
+        <div class="reports-body" id="reportsBody" hidden>
+          <div id="reportsList"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -357,6 +414,74 @@ $('clearSaved').addEventListener('click', ()=>{
   inflation.value = 8; years.value = 20;
   compute();
 });
+
+/* ---------------- saved reports (manual snapshots) ---------------- */
+const REPORTS_KEY = 'financeToolkit::healthInsurance::reports::v1';
+function loadReports(){
+  try{ const raw = localStorage.getItem(REPORTS_KEY); return raw ? JSON.parse(raw) : []; }
+  catch(e){ return []; }
+}
+function saveReportsList(list){
+  try{ localStorage.setItem(REPORTS_KEY, JSON.stringify(list)); }catch(e){}
+}
+function fmtReportDate(iso){
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'}) + ' · ' + d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
+}
+function addReport(){
+  const list = loadReports();
+  list.unshift({
+    id: 'r' + Date.now().toString(36),
+    date: new Date().toISOString(),
+    yearly: Number(yearlyNum.value)||0,
+    onetime: Number(onetimeNum.value)||0,
+    inflation: Number(inflation.value)||0,
+    years: Number(years.value)||0,
+    totalYearly: $('totalYearly').textContent,
+    verdict: $('verdictText').textContent.replace(/<[^>]+>/g,'')
+  });
+  if(list.length > 200) list.length = 200;
+  saveReportsList(list);
+  renderReportsPanel();
+}
+function deleteReport(id){
+  saveReportsList(loadReports().filter(r => r.id !== id));
+  renderReportsPanel();
+}
+function renderReportsPanel(){
+  const list = loadReports();
+  const countEl = $('reportsCount'), listEl = $('reportsList');
+  if(!countEl || !listEl) return;
+  countEl.textContent = list.length;
+  if(list.length === 0){
+    listEl.innerHTML = '<div class="reports-empty">No saved reports yet — use "Save this comparison as a report" above.</div>';
+    return;
+  }
+  listEl.innerHTML = list.map(r => `
+    <div class="report-row">
+      <div>
+        <div class="report-date">${fmtReportDate(r.date)}</div>
+        <div class="report-meta">${fmt(r.yearly)}/yr · ${fmt(r.onetime)} one-time · ${r.inflation}% infl. · ${r.years} yrs</div>
+      </div>
+      <button class="report-del" data-del="${r.id}" title="Delete">✕</button>
+    </div>
+  `).join('');
+  listEl.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => deleteReport(b.getAttribute('data-del'))));
+}
+(function initReportsPanel(){
+  const panel = $('reportsPanel'), toggle = $('reportsToggle'), body = $('reportsBody');
+  toggle.addEventListener('click', () => {
+    const willOpen = body.hasAttribute('hidden');
+    if(willOpen){ body.removeAttribute('hidden'); panel.classList.add('open'); }
+    else{ body.setAttribute('hidden',''); panel.classList.remove('open'); }
+    toggle.setAttribute('aria-expanded', String(willOpen));
+  });
+  $('saveReportBtn').addEventListener('click', () => {
+    addReport();
+    if(body.hasAttribute('hidden')) toggle.click();
+  });
+  renderReportsPanel();
+})();
 </script>
 </body>
 </html>
