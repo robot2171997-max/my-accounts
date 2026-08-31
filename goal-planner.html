@@ -35,6 +35,80 @@
   header h1{ font-size: 1.35em; margin: 0 0 4px; font-weight: 800; }
   header p{ font-size: 0.82em; color: var(--ink-soft); margin: 0; }
 
+  /* ---------- Responsive: desktop widening ---------- */
+  @media (min-width: 820px){
+    .wrap{ max-width: 760px; }
+    header h1{ font-size: 1.7em; }
+    header p{ font-size: 0.92em; }
+    .add-bar{ grid-template-columns: repeat(6, 1fr); }
+    .add-bar .custom-btn{ grid-column: span 6; }
+    .goal-card{ padding: 22px 22px 8px; }
+  }
+  @media (min-width: 1080px){
+    .wrap{ max-width: 880px; }
+  }
+
+  /* ---------- Save + saved reports panel ---------- */
+  .save-plan-row{ display:flex; gap:8px; margin-top:14px; }
+  .save-plan-btn{
+    flex:1;
+    background: var(--accent);
+    color:#fff;
+    border:none;
+    border-radius: 10px;
+    padding: 11px 14px;
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 0.86em;
+    cursor:pointer;
+  }
+  .save-plan-btn:active{ transform: scale(0.98); }
+  .save-plan-hint{ text-align:center; font-size:0.7em; color:var(--ink-soft); margin-top:6px; }
+
+  .reports-panel{
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    margin: 18px 0 8px;
+    overflow:hidden;
+  }
+  .reports-toggle{
+    width:100%; display:flex; align-items:center; justify-content:space-between;
+    gap:10px; background:none; border:none; cursor:pointer; padding:14px 16px;
+    font-family: var(--sans); text-align:left; color: var(--ink);
+  }
+  .reports-toggle .rleft{ display:flex; align-items:center; gap:10px; }
+  .reports-toggle .ricon{
+    width:30px; height:30px; border-radius:50%; flex-shrink:0;
+    background: var(--accent-soft); display:flex; align-items:center; justify-content:center;
+  }
+  .reports-toggle .ricon svg{ width:15px; height:15px; color: var(--accent); }
+  .reports-toggle .rtitle{ font-size:0.88em; font-weight:700; }
+  .reports-toggle .rsub{ font-size:0.7em; color: var(--ink-soft); margin-top:1px; }
+  .reports-toggle .rcount{
+    font-family: var(--mono); font-size: 0.72em; color: var(--ink-soft);
+    background: var(--bg); border-radius:20px; padding:3px 10px; flex-shrink:0;
+  }
+  .reports-toggle .chev{ width:13px; height:13px; color: var(--ink-soft); transition: transform 0.2s ease; flex-shrink:0; }
+  .reports-panel.open .chev{ transform: rotate(180deg); }
+  .reports-body{ padding: 0 16px 16px; border-top: 1px solid var(--border); }
+  .reports-body[hidden]{ display:none; }
+  .report-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding: 11px 0; border-bottom: 1px dashed var(--border);
+  }
+  .report-row:last-child{ border-bottom:none; }
+  .report-date{ font-size:0.78em; font-weight:700; }
+  .report-meta{ font-size:0.72em; color: var(--ink-soft); margin-top:2px; font-family: var(--mono); }
+  .report-actions{ display:flex; gap:6px; flex-shrink:0; }
+  .report-actions button{
+    background:none; border:1px solid var(--border); border-radius:7px;
+    padding:5px 9px; font-size:0.72em; cursor:pointer; color: var(--ink-soft);
+  }
+  .report-actions .restore-btn:hover{ color: var(--accent); border-color: var(--accent); }
+  .report-actions .del-btn:hover{ color: var(--red); border-color: var(--red); }
+  .reports-empty{ font-size:0.78em; color: var(--ink-soft); text-align:center; padding:14px 0; }
+
   /* ---------- Summary ---------- */
   .summary{
     background: linear-gradient(180deg, var(--accent-soft), var(--card) 65%);
@@ -302,6 +376,10 @@
     <div class="total-label">Total Monthly Investment Needed</div>
     <div class="total-value" id="grandTotal">₹0</div>
     <div id="barList"></div>
+    <div class="save-plan-row">
+      <button class="save-plan-btn" id="savePlanBtn">Save this plan as a report</button>
+    </div>
+    <div class="save-plan-hint">Your plan already saves itself as you type — this also logs a dated snapshot below.</div>
   </div>
 
   <div class="add-bar">
@@ -317,6 +395,25 @@
 
   <div class="empty-state" id="emptyState" style="display:none;">
     No goals yet — tap a category above to add one.
+  </div>
+
+  <div class="reports-panel" id="reportsPanel">
+    <button class="reports-toggle" id="reportsToggle" aria-expanded="false">
+      <span class="rleft">
+        <span class="ricon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v16.5A2.5 2.5 0 0 1 16.5 22H6.5A2.5 2.5 0 0 1 4 19.5v-14Z"/><path d="M8 7.5h7M8 11h7"/></svg></span>
+        <span>
+          <span class="rtitle">Saved reports</span>
+          <span class="rsub">Dated snapshots of this plan, saved on this device</span>
+        </span>
+      </span>
+      <span style="display:flex;align-items:center;gap:8px;">
+        <span class="rcount" id="reportsCount">0</span>
+        <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </span>
+    </button>
+    <div class="reports-body" id="reportsBody" hidden>
+      <div id="reportsList"></div>
+    </div>
   </div>
 
   <footer>
@@ -690,6 +787,92 @@ if(loadGoals()){
   };
   footer.appendChild(document.createElement('br'));
   footer.appendChild(btn);
+})();
+
+/* ---------------- saved reports (manual snapshots) ---------------- */
+const REPORTS_KEY = 'financeToolkit::goalPlanner::reports::v1';
+function loadReports(){
+  try{
+    const raw = localStorage.getItem(REPORTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){ return []; }
+}
+function saveReportsList(list){
+  try{ localStorage.setItem(REPORTS_KEY, JSON.stringify(list)); }catch(e){}
+}
+function fmtReportDate(iso){
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'}) + ' · ' + d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
+}
+function addReport(){
+  let total = 0;
+  goals.forEach(g => { total += computeGoal(g).sip; });
+  const list = loadReports();
+  list.unshift({
+    id: 'r' + Date.now().toString(36),
+    date: new Date().toISOString(),
+    totalSip: total,
+    goalCount: goals.length,
+    goals: JSON.parse(JSON.stringify(goals))
+  });
+  if(list.length > 200) list.length = 200;
+  saveReportsList(list);
+  renderReportsPanel();
+}
+function deleteReport(id){
+  const list = loadReports().filter(r => r.id !== id);
+  saveReportsList(list);
+  renderReportsPanel();
+}
+function restoreReport(id){
+  const r = loadReports().find(r => r.id === id);
+  if(!r) return;
+  if(!confirm('Load this saved report into your working plan? Your current goals will be replaced (this report will stay saved).')) return;
+  goals = JSON.parse(JSON.stringify(r.goals));
+  counter = goals.length;
+  renderGoalCards();
+  computeAll();
+}
+function renderReportsPanel(){
+  const list = loadReports();
+  const countEl = document.getElementById('reportsCount');
+  const listEl = document.getElementById('reportsList');
+  if(!countEl || !listEl) return;
+  countEl.textContent = list.length;
+  if(list.length === 0){
+    listEl.innerHTML = '<div class="reports-empty">No saved reports yet — use "Save this plan as a report" above to log one.</div>';
+    return;
+  }
+  listEl.innerHTML = list.map(r => `
+    <div class="report-row">
+      <div>
+        <div class="report-date">${fmtReportDate(r.date)}</div>
+        <div class="report-meta">${r.goalCount} goal${r.goalCount===1?'':'s'} · ${fmt(r.totalSip)}/mo total</div>
+      </div>
+      <div class="report-actions">
+        <button class="restore-btn" data-restore="${r.id}">Load</button>
+        <button class="del-btn" data-del="${r.id}">✕</button>
+      </div>
+    </div>
+  `).join('');
+  listEl.querySelectorAll('[data-restore]').forEach(b => b.addEventListener('click', () => restoreReport(b.getAttribute('data-restore'))));
+  listEl.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => deleteReport(b.getAttribute('data-del'))));
+}
+(function initReportsPanel(){
+  const panel = document.getElementById('reportsPanel');
+  const toggle = document.getElementById('reportsToggle');
+  const body = document.getElementById('reportsBody');
+  toggle.addEventListener('click', () => {
+    const willOpen = body.hasAttribute('hidden');
+    if(willOpen){ body.removeAttribute('hidden'); panel.classList.add('open'); }
+    else{ body.setAttribute('hidden',''); panel.classList.remove('open'); }
+    toggle.setAttribute('aria-expanded', String(willOpen));
+  });
+  document.getElementById('savePlanBtn').addEventListener('click', () => {
+    addReport();
+    if(body.hasAttribute('hidden')) toggle.click();
+  });
+  renderReportsPanel();
 })();
 </script>
 </body>
